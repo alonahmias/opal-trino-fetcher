@@ -1,11 +1,10 @@
-from typing import Any, List, Literal, Dict
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Literal
 
-from opal_common.fetcher.fetch_provider import BaseFetchProvider
-from opal_common.fetcher.events import FetcherConfig, FetchEvent
-
-from aiotrino.dbapi import connect, Connection, Cursor
 from aiotrino.auth import BasicAuthentication as BasicAuth
+from aiotrino.dbapi import Connection, Cursor, connect
+from opal_common.fetcher.events import FetcherConfig, FetchEvent
+from opal_common.fetcher.fetch_provider import BaseFetchProvider
+from pydantic import BaseModel, Field
 
 
 class TrinoConnectionConfig(BaseModel):
@@ -35,7 +34,8 @@ class TrinoFetcherConfig(FetcherConfig):
 
 class TrinoFetchEvent(FetchEvent):
     fetcher: str = "TrinoFetchProvider"
-    config: TrinoFetcherConfig = None # type: ignore
+    config: TrinoFetcherConfig = None  # type: ignore
+
 
 class TrinoFetchProvider(BaseFetchProvider):
     def __init__(self, event: TrinoFetchEvent):
@@ -45,17 +45,18 @@ class TrinoFetchProvider(BaseFetchProvider):
 
     def parse_event(self, event: FetchEvent) -> TrinoFetchEvent:
         return TrinoFetchEvent(**event.dict(exclude={"config"}), config=event.config)
-    
+
     async def __aenter__(self):
         if self._event.config is None:
             raise RuntimeError("Config is not initialized")
         if self._event.config.connection_params.http_scheme == "http":
             self._conn = connect(
-            host=self._event.url,
-            port=self._event.config.connection_params.port,
-            user=self._event.config.connection_params.user,
-            catalog=self._event.config.connection_params.catalog,
-            source=self._event.config.connection_params.source)
+                host=self._event.url,
+                port=self._event.config.connection_params.port,
+                user=self._event.config.connection_params.user,
+                catalog=self._event.config.connection_params.catalog,
+                source=self._event.config.connection_params.source,
+            )
         else:
             self._conn = connect(
                 host=self._event.url,
@@ -63,8 +64,10 @@ class TrinoFetchProvider(BaseFetchProvider):
                 user=self._event.config.connection_params.user,
                 catalog=self._event.config.connection_params.catalog,
                 source=self._event.config.connection_params.source,
-                auth=BasicAuth(username=self._event.config.connection_params.user,
-                        password=self._event.config.connection_params.password)
+                auth=BasicAuth(
+                    username=self._event.config.connection_params.user,
+                    password=self._event.config.connection_params.password,
+                ),
             )
         self._curr = await self._conn.cursor()
         return self
@@ -78,7 +81,7 @@ class TrinoFetchProvider(BaseFetchProvider):
     async def _fetch_(self) -> List[List[Any]] | List[Any]:
         if self._curr is None:
             raise RuntimeError("Cursor is not initialized")
-        
+
         await self._curr.execute(self._event.config.query)
 
         if self._event.config.fetch_one:
@@ -88,8 +91,10 @@ class TrinoFetchProvider(BaseFetchProvider):
             return row
         rows = await self._curr.fetchall()
         return rows
-    
-    async def _process_(self, records: List[List[Any]] | List[Any]) -> List[Dict[str, Any]] | Dict[str, Any]:
+
+    async def _process_(
+        self, records: List[List[Any]] | List[Any]
+    ) -> List[Dict[str, Any]] | Dict[str, Any]:
         if self._curr is None or self._curr.description is None:
             raise RuntimeError("Cursor is not initialized")
         elif self._event.config.fetch_one:
