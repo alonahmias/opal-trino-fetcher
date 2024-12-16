@@ -34,5 +34,5 @@ jobs:
 
     - name: upload to pypi
       run: |
-        python -m twine upload --password ${PYPI_APIKEY} dist/* 
+        python -m twine upload --password PYPI_APIKEY dist/* 
         
