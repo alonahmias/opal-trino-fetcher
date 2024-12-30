@@ -79,6 +79,11 @@ COPY .\dist\opal_trino_fetcher-$VERSION-py3-none-any.whl /tmp/opal_trino_fetcher
 RUN pip install --user /tmp/opal_trino_fetcher-0.0.2-py3-none-any.whl
 ```
 
+### Docker Start
+``` bash
+docker compose up --build
+```
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
