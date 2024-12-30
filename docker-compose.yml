@@ -1,0 +1,68 @@
+version: '3'
+services:
+  opal_server:
+    image: permitio/opal-server:latest
+    environment:
+      # - OPAL_BROADCAST_URI=postgres://postgres:postgres@postgres:5432/postgres
+      - UVICORN_NUM_WORKERS=1
+      - OPAL_POLICY_REPO_URL=https://github.com/nadavgross/trino-opa-example
+      - OPAL_POLICY_REPO_MAIN_BRANCH=main
+      - OPAL_POLICY_REPO_POLLING_INTERVAL=30
+      - OPAL_LOG_FORMAT_INCLUDE_PID=true
+      - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"trino","config":{"fetcher":"TrinoFetchProvider","query":"SELECT * FROM system.information_schema.tables","fetch_key":"table_name","connection_params":{"user":"trino","password":"hiuasdasd","port":8080}},"topics":["policy_data"],"dst_path":"cities","periodic_update_interval":10}]}}
+      - OPAL_DATA_UPDATER_ENABLED=True
+    ports:
+      - "7002:7002"
+    networks:
+      - mynetwork
+
+  opa:
+    build: .
+    environment:
+      - OPAL_SERVER_URL=http://opal_server:7002
+      - OPAL_FETCH_PROVIDER_MODULES=opal_common.fetcher.providers,opal_trino_fetcher.provider
+      # - OPAL_DATA_CONFIG_SOURCES={"config":{"entries":[{"url":"localhost:8080","config":{"fetcher":"TrinoFetchProvider","query":"SELECT * system.information_schema.tables;","connection_params":{"user":"trino"}},"topics":["policy_data"],"dst_path":"cities","periodic_update_interval":10}]}}
+      # - OPAL_DATA_UPDATER_ENABLED=True
+      - OPAL_LOG_FORMAT_INCLUDE_PID=true
+      - OPAL_INLINE_OPA_LOG_FORMAT=http
+    ports:
+      - "7766:7000"
+      - "8181:8181"
+    depends_on:
+      - opal_server
+    command: sh -c "exec ./wait-for.sh opal_server:7002 --timeout=60 -- ./start.sh"
+    networks:
+      - mynetwork
+    volumes:
+      - C:\Users\chaya\Development\opal-trino-fetcher\dist:/tmp/dist
+
+  trino:
+    image: trinodb/trino:latest
+    ports:
+      - "8080:8080"
+    networks:
+      - mynetwork
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: datalake_catalog
+      POSTGRES_HOST_AUTH_METHOD: md5
+    networks:
+      - mynetwork
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  mynetwork:
+    driver: bridge
